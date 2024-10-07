@@ -1,0 +1,14 @@
+[
+{
+  "directory": "E:/VS_Code/C++projects/MyProject/build",
+  "command": "E:/VS_Code/w64devkit/bin/g++.exe   -g -o CMakeFiles/my_cmake.swap.dir/main.cpp.obj -c E:/VS_Code/C++projects/MyProject/main.cpp",
+  "file": "E:/VS_Code/C++projects/MyProject/main.cpp",
+  "output": "CMakeFiles/my_cmake.swap.dir/main.cpp.obj"
+},
+{
+  "directory": "E:/VS_Code/C++projects/MyProject/build",
+  "command": "E:/VS_Code/w64devkit/bin/g++.exe   -g -o CMakeFiles/my_cmake.swap.dir/Swap.cpp.obj -c E:/VS_Code/C++projects/MyProject/Swap.cpp",
+  "file": "E:/VS_Code/C++projects/MyProject/Swap.cpp",
+  "output": "CMakeFiles/my_cmake.swap.dir/Swap.cpp.obj"
+}
+]
