@@ -1,6 +1,6 @@
 <div align="center">
 
-# SimpleDraw - Win32 GDI 图形绘制引擎架构与机制解析
+# SimpleDraw - Win32 GDI 工作机制描述文档
 
 [![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://github.com/)
 [![Language](https://img.shields.io/badge/Language-C%2B%2B-green.svg)](https://isocpp.org/)
@@ -12,7 +12,7 @@
 
 SimpleDraw 是一个基于纯 Win32 API 与 GDI 以及 C++ 现代标准库构建的轻量级 2D 矢量图形绘制应用程序，支持基础的线段和矩形的绘制、左键绘图右键擦除、撤销、清除和保存功能。本系统摒弃了高层 UI 框架的封装，采用经典的**事件驱动（Event-Driven）架构**，直接与 Windows 底层消息队列交互。
 
-系统采用了双缓冲渲染技术实现无闪烁绘图，并使用工作线程处理 BMP 格式文件保存等耗时操作，确保在进行磁盘读写等耗时操作时，UI 线程保持绝对的流畅和响应。
+系统采用了双缓冲渲染技术实现无闪烁绘图，并使用工作线程处理 BMP 格式文件保存等耗时操作，确保在进行磁盘读写等耗时操作时 UI 线程保持绝对的流畅和响应。
 
 ---
 
@@ -174,5 +174,6 @@ params->shapes = std::move(shapesCopy); // 移交数据所有权给工作线程
 - 解决方案：双缓冲技术 + 区域无效重绘
 - 技术价值：GDI性能优化的核心技巧，理解屏幕刷新机制
 
+---
   
 SimpleDraw 虽然功能简单，但其架构设计体现了 Windows 系统编程的核心思想：消息驱动、多线程分工、资源管理、无锁化数据共享。这些设计原则在企业级软件开发中具有普适性的参考价值。
