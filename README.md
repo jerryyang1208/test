@@ -22,172 +22,50 @@ SimpleDraw 是一个基于纯 Win32 API 与 GDI 以及 C++ 现代标准库构建
 
 ### 2.1 底部工具栏交互流转 (WM_COMMAND)
 
-- **线段 (ID_BTN_LINE) / 矩形 (ID_BTN_RECT)：** 点击后修改全局状态变量 `g_currentType`，并同步更新窗口标题栏，为用户提供当前的绘图模式反馈。
-  - **状态变量更新**
-    - 若点击“线段”，将 `g_currentType` 设为 `ShapeType::Line`
-    - 若点击“矩形”，将 `g_currentType` 设为 `ShapeType::Rectangle`
-  - **界面反馈更新**
-    - 调用 `SetWindowText` 更新窗口标题
-    - 线段模式标题："简单画板 - 线段模式"
-    - 矩形模式标题："简单画板 - 矩形模式"
+- **线段 (ID_BTN_LINE) / 矩形 (ID_BTN_RECT):** 点击后修改全局状态变量 `g_currentType`，并同步更新窗口标题栏。
+  - **状态变量更新:** 线段设为 `ShapeType::Line`，矩形设为 `ShapeType::Rectangle`
+  - **界面反馈更新:** 调用 `SetWindowText` 更新标题为“线段模式”或“矩形模式”
 
-- **撤销 (ID_BTN_UNDO)：** 触发命令回退逻辑。系统从 `g_undoStack` 弹出最后一次操作记录：
-  - **前置检查**
-    - 检查撤销栈 `g_undoStack` 是否为空
-    - 若为空则直接返回，不执行任何操作
-  - **操作类型判断**
-    - **Add 类型（添加操作）**
-      - 从操作记录中获取图形索引 `op.indices[0]`
-      - 检查索引是否在有效范围内（0 到 `g_shapes.size() - 1`）
-      - 调用 `g_shapes.erase(g_shapes.begin() + idx)` 删除对应图形
-    - **Delete 类型（删除操作）**
-      - **数据重组**
-        - 遍历操作记录中的索引和图形，构建 `pair<int, Shape>` 数组
-        - 每个 pair 包含原索引位置和被删除的图形对象
-      - **排序处理**
-        - 按索引**降序排序**（从大到小）
-        - 排序目的：从后往前插入，避免先插入的图形改变后续索引位置
-      - **图形恢复**
-        - 遍历排序后的数组
-        - 检查当前索引是否小于等于 `g_shapes.size()`
-        - 若是：在指定索引位置插入 `g_shapes.insert(g_shapes.begin() + item.first, item.second)`
-        - 若否：直接追加到末尾 `g_shapes.push_back(item.second)`
-  - **状态更新**
-    - 标记画板为未保存状态 `g_bSaved = false`
-  - **界面刷新**
-    - 调用 `GetCanvasRect` 获取画板区域矩形
-    - 调用 `InvalidateRect(hWnd, &canvasRect, TRUE)` 仅重绘画板区域，避免按钮栏闪烁
+- **撤销 (ID_BTN_UNDO):** 触发命令回退逻辑，从 `g_undoStack` 弹出最后一次操作记录。
+  - **前置检查:** 若撤销栈为空则直接返回
+  - **Add类型处理:** 根据记录索引调用 `g_shapes.erase()` 删除对应图形
+  - **Delete类型处理:**
+    - 将索引和图形构建为 `pair` 数组
+    - 按索引**降序排序**（从后往前插入避免索引变化）
+    - 遍历数组，在指定索引位置插入或追加到末尾
+  - **收尾操作:** 标记 `g_bSaved = false`，获取画板区域调用 `InvalidateRect` 局部重绘
 
-- **清除 (ID_BTN_CLEAR)：** 将当前画布上所有的图形打包为一个 `OpType::Delete` 操作压入撤销栈，清空 `g_shapes` 容器，标记画板为未保存状态，并请求重绘。
-  - **前置检查**
-    - 检查 `g_shapes` 是否为空
-    - 若为空则直接返回，不执行任何操作
-  - **操作记录构建**
-    - 遍历 `g_shapes` 中所有图形
-    - 为每个图形记录其当前索引位置到 `indices` 数组
-    - 为每个图形复制图形数据到 `shapes` 数组
-    - 调用 `AddOperation(OpType::Delete, shapes, indices)` 将本次清除作为删除操作压入撤销栈
-  - **数据清空**
-    - 调用 `g_shapes.clear()` 清空所有图形数据
-  - **状态更新**
-    - 标记画板为未保存状态 `g_bSaved = false`
-  - **界面刷新**
-    - 获取画板区域矩形
-    - 调用 `InvalidateRect` 仅重绘画板区域
+- **清除 (ID_BTN_CLEAR):** 将所有图形打包为删除操作压栈，清空容器并重绘。
+  - **前置检查:** 若 `g_shapes` 为空则直接返回
+  - **操作记录:** 遍历所有图形，记录索引和图形数据，调用 `AddOperation(OpType::Delete, ...)` 压栈
+  - **数据清空:** 调用 `g_shapes.clear()` 清空所有图形
+  - **收尾操作:** 标记 `g_bSaved = false`，获取画板区域调用 `InvalidateRect` 局部重绘
 
-- **保存 (ID_BTN_SAVE)：** 触发异步文件 I/O 流水线。通过 `GetSaveFileName` 调出系统对话框获取路径，锁定 UI 保存状态，禁用保存按钮以防重入冲突，最后拉起后台工作线程执行保存逻辑。
-  - **前置检查**
-    - **保存状态检查**
-      - 检查全局标志 `g_bSaving` 是否为 true
-      - 若正在保存中：弹出提示框 "正在保存中，请稍候..." 并直接返回
-    - **画板尺寸检查**
-      - 调用 `GetCanvasRect` 获取画板区域
-      - 计算宽度和高度
-      - 若宽度或高度小于等于0，直接返回（无内容可保存）
-  - **文件路径获取**
-    - **初始化对话框结构**
-      - 填充 `OPENFILENAME` 结构体
-      - 设置 `hwndOwner` 为主窗口句柄
-      - 设置文件过滤器为 "Bitmap Files (*.bmp)\0*.bmp\0All Files (*.*)\0*.*\0"
-      - 设置默认扩展名为 "bmp"
-      - 设置标志 `OFN_OVERWRITEPROMPT`（文件存在时提示覆盖）
-    - **调用保存对话框**
-      - 调用 `GetSaveFileName(&ofn)`
-      - 若用户取消：直接返回，不执行任何保存操作
-      - 若用户确认：获取选择的文件路径 `szFile`
-  - **数据快照准备**
-    - **复制图形数据**
-      - 创建 `std::vector<Shape> shapesCopy = g_shapes`
-      - 深拷贝当前所有图形数据，生成独立副本
-      - 目的：工作线程操作副本，主线程可继续修改原数据
-    - **创建线程参数**
-      - 使用 `std::make_unique<SaveThreadParams>` 创建参数对象
-      - 设置参数成员：
-        - `hWnd`：主窗口句柄（用于发送消息）
-        - `fileName`：用户选择的文件路径
-        - `shapes`：通过 `std::move(shapesCopy)` 转移图形数据所有权
-        - `width`：画板宽度
-        - `height`：画板高度
-  - **UI状态锁定**
-    - 设置全局标志 `g_bSaving = true`（标记正在保存）
-    - 调用 `EnableWindow(GetDlgItem(hWnd, ID_BTN_SAVE), FALSE)` 禁用保存按钮
-    - 目的：防止用户在保存过程中重复点击，导致多个保存线程冲突
-  - **工作线程创建**
-    - **调用 CreateThread**
-      - 传递线程函数 `SaveThreadProc`
-      - 传递参数 `params.get()`（原始指针）
-      - 获取线程ID（仅用于调试）
-      - 保存线程句柄到 `g_hSaveThread`
-    - **线程创建成功处理**
-      - 调用 `params.release()` 释放所有权
-      - 目的：智能指针不再管理内存，所有权转移给工作线程
-      - 工作线程结束后会自动通过 `unique_ptr` 释放内存
-    - **线程创建失败处理**
-      - 恢复保存状态 `g_bSaving = false`
-      - 重新启用保存按钮
-      - `params` 超出作用域自动释放内存（RAII优势）
-      - 弹出错误提示 "无法创建保存线程！"
-  - **工作线程执行逻辑 (SaveThreadProc)**
-    - **参数接管**
-      - 使用 `std::unique_ptr<SaveThreadParams> p(static_cast<SaveThreadParams*>(lpParam))`
-      - 自动接管传入的参数内存，确保函数退出时释放
-    - **同步查询**
-      - 调用 `SendMessage(p->hWnd, WM_GET_SHAPE_COUNT, 0, 0)`
-      - 目的：向主线程同步查询当前图形数量（仅作日志或调试用途）
-    - **GDI资源创建**
-      - **获取屏幕DC**
-        - `HDC hdcScreen = GetDC(NULL)` 获取整个屏幕的设备上下文
-      - **创建内存DC**
-        - `HDC hdcMem = CreateCompatibleDC(hdcScreen)`
-        - 创建与屏幕兼容的内存设备上下文
-      - **创建兼容位图**
-        - `HBITMAP hBitmap = CreateCompatibleBitmap(hdcScreen, p->width, p->height)`
-        - 创建与屏幕兼容的位图，大小与画板一致
-      - **选入内存DC**
-        - `SelectObject(hdcMem, hBitmap)`
-        - 将位图选入内存DC，后续绘制操作都在这个位图上进行
-    - **图形绘制**
-      - 调用 `DrawCanvas(hdcMem, p->width, p->height, p->shapes)`
-      - 在内存DC上绘制所有图形（使用数据副本）
-      - 绘制白色背景、所有线段和矩形
-    - **BMP文件保存**
-      - 调用 `SaveBitmapToFile(hBitmap, p->fileName.c_str(), hdcMem)`
-      - **内部实现细节：**
-        - 获取位图信息 `GetObject(hBitmap, sizeof(BITMAP), &bmp)`
-        - 填充 `BITMAPINFOHEADER` 结构
-        - 计算图像数据大小（按4字节对齐）
-        - 创建 `std::vector<BYTE>` 存储像素数据
-        - 调用 `GetDIBits` 获取位图像素数据
-        - 创建文件 `CreateFile`
-        - 写入 `BITMAPFILEHEADER` 文件头
-        - 写入 `BITMAPINFOHEADER` 信息头
-        - 写入像素数据
-        - 关闭文件句柄
-    - **GDI资源清理**
-      - 删除内存DC：`DeleteDC(hdcMem)`
-      - 释放屏幕DC：`ReleaseDC(NULL, hdcScreen)`
-      - 删除位图对象：`DeleteObject(hBitmap)`
-    - **异步通知主线程**
-      - 检查主窗口是否仍有效：`IsWindow(p->hWnd)`
-      - 调用 `PostMessage(p->hWnd, WM_SAVE_COMPLETE, success ? 1 : 0, 0)`
-      - 传递保存结果（成功或失败）
-      - 使用 PostMessage 异步通知，不等待主线程处理
-    - **线程退出**
-      - 函数返回 0，线程自动结束
-      - `unique_ptr` 析构自动释放 `SaveThreadParams` 内存
-  - **保存完成处理 (WM_SAVE_COMPLETE)**
-    - **状态恢复**
-      - 从 `wParam` 获取保存结果 `success`
-      - 调用 `EnableWindow(GetDlgItem(hWnd, ID_BTN_SAVE), TRUE)` 重新启用保存按钮
-      - 设置 `g_bSaving = false` 清除保存状态
-    - **线程句柄清理**
-      - 检查 `g_hSaveThread` 是否为 NULL
-      - 调用 `CloseHandle(g_hSaveThread)` 关闭线程句柄
-      - 设置 `g_hSaveThread = NULL` 防止重复关闭
-    - **用户反馈**
-      - 若保存成功：设置 `g_bSaved = true` 标记已保存
-      - 弹出提示框 "保存成功！"
-      - 若保存失败：弹出提示框 "保存失败！"（带错误图标）
+- **保存 (ID_BTN_SAVE):** 触发异步文件 I/O 流水线，后台线程执行 BMP 保存。
+  - **前置检查:**
+    - 若 `g_bSaving` 为 true，弹出“正在保存”提示并返回
+    - 获取画板尺寸，若宽高≤0则直接返回
+  - **文件路径获取:** 初始化 `OPENFILENAME` 结构，调用 `GetSaveFileName`，用户取消则返回
+  - **数据快照准备:**
+    - 深拷贝 `std::vector<Shape> shapesCopy = g_shapes` 生成副本
+    - 创建 `SaveThreadParams` 参数对象，通过 `std::move` 转移数据所有权
+  - **UI状态锁定:** 设置 `g_bSaving = true`，禁用保存按钮防止重复点击
+  - **工作线程创建:**
+    - 调用 `CreateThread` 执行 `SaveThreadProc`，传递 `params.get()`
+    - 成功则 `params.release()` 转移内存所有权给线程
+    - 失败则恢复状态、启用按钮、弹出错误提示
+  - **工作线程执行 (SaveThreadProc):**
+    - **参数接管:** 用 `std::unique_ptr` 接管传入参数，确保退出时释放
+    - **同步查询:** `SendMessage` 向主线程查询图形数量（调试用途）
+    - **GDI资源创建:** 获取屏幕DC，创建内存DC和兼容位图，选入内存DC
+    - **图形绘制:** 调用 `DrawCanvas` 在内存DC上绘制数据副本
+    - **BMP保存:** 调用 `SaveBitmapToFile` 写入文件（含文件头、信息头、像素数据）
+    - **资源清理:** 删除内存DC、释放屏幕DC、删除位图对象
+    - **异步通知:** `PostMessage` 发送 `WM_SAVE_COMPLETE` 通知主线程保存结果
+  - **保存完成处理 (WM_SAVE_COMPLETE):**
+    - **状态恢复:** 启用保存按钮，设置 `g_bSaving = false`
+    - **句柄清理:** `CloseHandle(g_hSaveThread)` 关闭线程句柄
+    - **用户反馈:** 成功则标记 `g_bSaved = true` 并弹出“保存成功”，失败则弹出“保存失败”
 
 ### 2.2 鼠标核心交互逻辑
 
