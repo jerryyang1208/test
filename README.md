@@ -10,9 +10,9 @@
 
 ## 1. 系统概述
 
-SimpleDraw 是一个基于纯 Win32 API 与 GDI 以及 C++ 现代标准库构建的轻量级 2D 矢量图形绘制应用程序。本系统摒弃了高层 UI 框架的封装，采用经典的**事件驱动（Event-Driven）架构**，直接与 Windows 底层消息队列交互。
+SimpleDraw 是一个基于纯 Win32 API 与 GDI 以及 C++ 现代标准库构建的轻量级 2D 矢量图形绘制应用程序，支持基础的线段和矩形的绘制、左键绘图右键擦除、撤销、清除和保存功能。本系统摒弃了高层 UI 框架的封装，采用经典的**事件驱动（Event-Driven）架构**，直接与 Windows 底层消息队列交互。
 
-系统实现了无闪烁的双缓冲渲染、基于命令模式（Command Pattern）的撤销/重做机制，以及主从多线程异步文件 I/O 策略，确保在进行磁盘读写等耗时操作时，UI 线程保持绝对的流畅和响应。
+系统采用了双缓冲渲染技术实现无闪烁绘图，并使用工作线程处理 BMP 格式文件保存等耗时操作，确保在进行磁盘读写等耗时操作时，UI 线程保持绝对的流畅和响应。
 
 ---
 
@@ -69,7 +69,7 @@ SimpleDraw 是一个基于纯 Win32 API 与 GDI 以及 C++ 现代标准库构建
 
 ---
 
-## 4. 企业级多线程架构设计：UI 线程与工作线程的分工
+## 4. 多线程架构设计：UI 线程与工作线程的分工
 
 如果在单线程中处理高分辨率图像的内存对齐和磁盘 I/O，势必会阻塞主循环，导致窗口出现“未响应”或“白屏”的假死现象。本系统采用了标准的 **Main-Worker** 并发架构。
 
@@ -91,3 +91,4 @@ SimpleDraw 是一个基于纯 Win32 API 与 GDI 以及 C++ 现代标准库构建
 std::vector<Shape> shapesCopy = g_shapes;
 auto params = std::make_unique<SaveThreadParams>();
 params->shapes = std::move(shapesCopy); // 移交数据所有权给工作线程
+
