@@ -2,11 +2,15 @@
 
 # SimpleDraw - Win32 GDI 图形绘制引擎架构与机制解析
 
+[![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://github.com/)
+[![Language](https://img.shields.io/badge/Language-C%2B%2B-green.svg)](https://isocpp.org/)
+[![API](https://img.shields.io/badge/API-Win32-orange.svg)](https://docs.microsoft.com/en-us/windows/win32/)
+
 </div>
 
 ## 1. 系统概述
 
-SimpleDraw 是一个基于纯 Win32 API 与 GDI (Graphics Device Interface) 构建的轻量级 2D 矢量图形绘制应用程序。本系统摒弃了高层 UI 框架的封装，采用经典的**事件驱动（Event-Driven）架构**，直接与 Windows 底层消息队列交互。
+SimpleDraw 是一个基于纯 Win32 API 与 GDI 以及 C++ 现代标准库构建的轻量级 2D 矢量图形绘制应用程序。本系统摒弃了高层 UI 框架的封装，采用经典的**事件驱动（Event-Driven）架构**，直接与 Windows 底层消息队列交互。
 
 系统实现了无闪烁的双缓冲渲染、基于命令模式（Command Pattern）的撤销/重做机制，以及主从多线程异步文件 I/O 策略，确保在进行磁盘读写等耗时操作时，UI 线程保持绝对的流畅和响应。
 
